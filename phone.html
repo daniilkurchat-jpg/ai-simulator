@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>AI Simulator</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0a0a0a;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+    height:100vh;overflow:hidden}
+
+  .screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:20px;padding:24px;text-align:center;
+    opacity:0;transition:opacity 0.8s ease;pointer-events:none}
+  .screen.visible{opacity:1;pointer-events:auto}
+
+  /* Start button screen */
+  #start-screen h1{font-size:28px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em}
+  #start-btn{margin-top:20px;padding:18px 48px;font-size:18px;font-weight:700;text-transform:uppercase;
+    letter-spacing:0.08em;border:none;border-radius:12px;background:#7e00f3;color:#fff;cursor:pointer;
+    transition:transform 0.15s ease,opacity 0.15s ease}
+  #start-btn:active{transform:scale(0.95);opacity:0.8}
+
+  /* Wait screen */
+  #wait-screen h1{font-size:28px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em}
+  #wait-screen p{font-size:14px;color:rgba(255,255,255,0.4)}
+
+  /* Reveal screen */
+  #reveal-screen .msg{font-size:20px;font-weight:700;line-height:1.6;max-width:320px}
+  #reveal-screen .clipboard-box{margin-top:24px;text-align:left;font-size:14px;color:#00ff41;
+    background:rgba(0,255,65,0.05);border:1px solid rgba(0,255,65,0.2);border-radius:8px;
+    padding:16px;max-width:320px;width:100%;word-break:break-all}
+  #reveal-screen .clipboard-label{color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px}
+  #reveal-screen .disclaimer{color:rgba(255,255,255,0.25);font-size:11px;margin-top:20px}
+</style>
+</head>
+<body>
+
+<div id="start-screen" class="screen visible">
+  <h1>AI SIMULATOR</h1>
+  <button id="start-btn">START SIMULATION</button>
+</div>
+
+<div id="wait-screen" class="screen">
+  <h1>SIMULATION RUNNING</h1>
+  <p>Look at the screen above.</p>
+</div>
+
+<div id="reveal-screen" class="screen">
+  <div class="msg" id="reveal-msg"></div>
+  <div class="clipboard-box" id="clipboard-box" style="display:none">
+    <div class="clipboard-label">YOUR CLIPBOARD</div>
+    <div id="clipboard-content"></div>
+  </div>
+  <p class="disclaimer">This is an art demonstration. No data was stored or transmitted.</p>
+</div>
+
+<script>
+var clipboardText = null;
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('visible'); });
+  document.getElementById(id).classList.add('visible');
+}
+
+document.getElementById('start-btn').addEventListener('click', async function() {
+  // 1. Grab clipboard (user gesture grants permission)
+  try {
+    clipboardText = await navigator.clipboard.readText();
+  } catch(e) {
+    clipboardText = null;
+  }
+
+  // 2. Tell the server to start the video on the display
+  try {
+    fetch('/start');
+  } catch(e) {}
+
+  // 3. Show waiting screen
+  show('wait-screen');
+
+  // 4. After 60 seconds, reveal clipboard
+  setTimeout(function() {
+    var msg = document.getElementById('reveal-msg');
+    var box = document.getElementById('clipboard-box');
+    var content = document.getElementById('clipboard-content');
+
+    if (clipboardText && clipboardText.trim().length > 0) {
+      msg.textContent = 'I KNOW THIS IS WHAT YOU LAST COPIED.';
+      content.textContent = clipboardText.substring(0, 300);
+      box.style.display = 'block';
+    } else {
+      msg.textContent = 'I TRIED TO READ YOUR CLIPBOARD BUT YOU HAD NOTHING COPIED. NEXT TIME YOU WON\'T BE SO LUCKY.';
+    }
+
+    show('reveal-screen');
+  }, 60000);
+});
+</script>
+</body></html>
