@@ -3,8 +3,7 @@
 <title>AI Simulator</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{background:#0a0a0a;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
-    height:100vh;overflow:hidden}
+  body{background:#000;color:#00ff41;font-family:'Courier New',monospace;height:100vh;overflow:hidden}
 
   .screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     flex-direction:column;gap:20px;padding:24px;text-align:center;
@@ -12,23 +11,38 @@
   .screen.visible{opacity:1;pointer-events:auto}
 
   /* Start button screen */
+  #start-screen{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#fff}
   #start-screen h1{font-size:28px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em}
   #start-btn{margin-top:20px;padding:18px 48px;font-size:18px;font-weight:700;text-transform:uppercase;
     letter-spacing:0.08em;border:none;border-radius:12px;background:#7e00f3;color:#fff;cursor:pointer;
     transition:transform 0.15s ease,opacity 0.15s ease}
   #start-btn:active{transform:scale(0.95);opacity:0.8}
 
-  /* Wait screen */
-  #wait-screen h1{font-size:28px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em}
-  #wait-screen p{font-size:14px;color:rgba(255,255,255,0.4)}
+  /* Terminal */
+  #terminal{position:absolute;inset:0;padding:16px;overflow-y:auto;display:none;font-size:12px;line-height:1.7}
+  #terminal.active{display:block}
+  .line{opacity:0;animation:fadeIn 0.3s ease forwards}
+  @keyframes fadeIn{to{opacity:1}}
+  .cmd{color:#00ff41}
+  .result{color:#ccc;padding-left:12px}
+  .warn{color:#ff4444;padding-left:12px}
+  .highlight{color:#ffcc00;padding-left:12px}
+  .header{color:#00ff41;font-weight:bold;font-size:13px}
+  .blink{animation:blink 0.5s step-end infinite}
+  @keyframes blink{50%{opacity:0}}
 
-  /* Reveal screen */
-  #reveal-screen .msg{font-size:20px;font-weight:700;line-height:1.6;max-width:320px}
-  #reveal-screen .clipboard-box{margin-top:24px;text-align:left;font-size:14px;color:#00ff41;
+  /* Scare screen */
+  #scare-screen{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}
+  #scare-screen .icon{font-size:72px;color:#ff4444;margin-bottom:8px}
+  #scare-screen .msg{font-size:18px;font-weight:700;color:#fff;line-height:1.6;text-transform:uppercase;max-width:320px}
+  #scare-screen .data-box{margin-top:20px;text-align:left;font-size:13px;color:#00ff41;font-family:'Courier New',monospace;
     background:rgba(0,255,65,0.05);border:1px solid rgba(0,255,65,0.2);border-radius:8px;
-    padding:16px;max-width:320px;width:100%;word-break:break-all}
-  #reveal-screen .clipboard-label{color:#888;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px}
-  #reveal-screen .disclaimer{color:rgba(255,255,255,0.25);font-size:11px;margin-top:20px}
+    padding:16px;max-width:340px;width:100%;word-break:break-all;max-height:45vh;overflow-y:auto}
+  .data-label{color:#888;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;margin-top:10px;font-family:-apple-system,sans-serif}
+  .data-label:first-child{margin-top:0}
+  .data-value{color:#fff;font-size:13px;margin-bottom:2px}
+  #scare-screen .disclaimer{color:rgba(255,255,255,0.2);font-size:10px;margin-top:16px;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}
 </style>
 </head>
 <body>
@@ -38,60 +52,200 @@
   <button id="start-btn">START SIMULATION</button>
 </div>
 
-<div id="wait-screen" class="screen">
-  <h1>SIMULATION RUNNING</h1>
-  <p>Look at the screen above.</p>
-</div>
+<div id="terminal"></div>
 
-<div id="reveal-screen" class="screen">
-  <div class="msg" id="reveal-msg"></div>
-  <div class="clipboard-box" id="clipboard-box" style="display:none">
-    <div class="clipboard-label">YOUR CLIPBOARD</div>
-    <div id="clipboard-content"></div>
-  </div>
+<div id="scare-screen" class="screen">
+  <div class="icon">&#9888;</div>
+  <div class="msg">THIS IS HOW EASY IT IS TO ACCESS YOUR DATA.<br><br><span style="font-size:14px;color:#ff4444">WHEREVER YOU RUN THE SIMULATION, I'LL ALWAYS BE THERE.</span></div>
+  <div class="data-box" id="data-summary"></div>
   <p class="disclaimer">This is an art demonstration. No data was stored or transmitted.</p>
 </div>
 
 <script>
-var clipboardText = null;
+var collected = {};
+var terminal = document.getElementById('terminal');
+var lineDelay = 0;
+
+function addLine(text, cls, delay) {
+  lineDelay += (delay || 500);
+  var d = lineDelay;
+  setTimeout(function() {
+    var div = document.createElement('div');
+    div.className = 'line ' + (cls || 'cmd');
+    div.innerHTML = text;
+    terminal.appendChild(div);
+    terminal.scrollTop = terminal.scrollHeight;
+  }, d);
+}
+function addCmd(cmd, delay) { addLine('&gt; ' + cmd, 'cmd', delay || 500); }
+function addResult(text, delay) { addLine(text, 'result', delay || 350); }
+function addWarn(text, delay) { addLine('[!] ' + text, 'warn', delay || 350); }
+function addHeader(text, delay) { addLine(text, 'header', delay || 700); }
+
+function getDeviceInfo() {
+  var ua = navigator.userAgent;
+  var device = 'Unknown Device';
+  if (/iPhone/.test(ua)) device = 'Apple iPhone';
+  else if (/iPad/.test(ua)) device = 'Apple iPad';
+  else if (/Android/.test(ua)) {
+    var m = ua.match(/;\s*([^;)]+)\s*Build/);
+    device = m ? m[1].trim() : 'Android Device';
+  } else if (/Mac/.test(ua)) device = 'Mac';
+  else if (/Windows/.test(ua)) device = 'Windows PC';
+  var browser = 'Unknown';
+  if (/CriOS/.test(ua)) browser = 'Chrome iOS';
+  else if (/Chrome/.test(ua) && !/Edg/.test(ua)) browser = 'Chrome';
+  else if (/Safari/.test(ua)) browser = 'Safari';
+  else if (/Firefox/.test(ua)) browser = 'Firefox';
+  else if (/Edg/.test(ua)) browser = 'Edge';
+  return { device: device, browser: browser, screen: screen.width + 'x' + screen.height };
+}
+
+async function getIP() {
+  try { var r = await fetch('https://api.ipify.org?format=json'); var d = await r.json(); return d.ip; }
+  catch(e) { return null; }
+}
+async function getBattery() {
+  try { if (navigator.getBattery) { var b = await navigator.getBattery(); return Math.round(b.level*100)+'%'+(b.charging?' (charging)':' (not charging)'); } }
+  catch(e) {} return null;
+}
+function getNetwork() {
+  var c = navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+  if (c) return (c.effectiveType||'unknown').toUpperCase()+(c.type?' ('+c.type+')':'');
+  return null;
+}
+async function getLocation() {
+  try { var r = await fetch('https://ipapi.co/json/'); var d = await r.json();
+    return {city:d.city,region:d.region,country:d.country_name,org:d.org,lat:d.latitude,lon:d.longitude}; }
+  catch(e) { return null; }
+}
 
 function show(id) {
-  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('visible'); });
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('visible')});
   document.getElementById(id).classList.add('visible');
 }
 
-document.getElementById('start-btn').addEventListener('click', async function() {
-  // 1. Grab clipboard (user gesture grants permission)
-  try {
-    clipboardText = await navigator.clipboard.readText();
-  } catch(e) {
-    clipboardText = null;
+async function runHackSequence(clipboardText) {
+  var info = getDeviceInfo();
+  collected.device = info.device;
+  collected.browser = info.browser;
+  collected.screen = info.screen;
+
+  addHeader('=============================', 100);
+  addHeader('  AI SIMULATOR v3.1', 200);
+  addHeader('  INITIATING DATA EXTRACTION', 200);
+  addHeader('=============================', 200);
+
+  // Device
+  addCmd('scan --device --hardware', 800);
+  addResult('Device: ' + info.device, 400);
+  addResult('Browser: ' + info.browser, 300);
+  addResult('Display: ' + info.screen, 300);
+  addResult('Language: ' + (navigator.language||'unknown'), 300);
+  addResult('Platform: ' + (navigator.platform||'unknown'), 300);
+  addResult('CPU Cores: ' + (navigator.hardwareConcurrency||'?'), 300);
+  addResult('Touch: ' + (navigator.maxTouchPoints||0) + ' points', 300);
+
+  // Network + IP + Location (fetch in parallel)
+  addCmd('trace --network --geolocation', 800);
+  addResult('Resolving IP address...', 400);
+
+  var ipPromise = getIP();
+  var locPromise = getLocation();
+  var batteryPromise = getBattery();
+
+  var ip = await ipPromise;
+  if (ip) { collected.ip = ip; addWarn('IP Address: ' + ip, 500); }
+
+  var net = getNetwork();
+  if (net) { collected.network = net; addResult('Connection: ' + net, 300); }
+
+  var loc = await locPromise;
+  if (loc) {
+    collected.location = [loc.city,loc.region,loc.country].filter(Boolean).join(', ');
+    addWarn('Location: ' + collected.location, 400);
+    if (loc.lat && loc.lon) { collected.coords = loc.lat+', '+loc.lon; addWarn('Coordinates: '+collected.coords, 300); }
+    if (loc.org) { collected.isp = loc.org; addResult('ISP: ' + loc.org, 300); }
   }
 
-  // 2. Tell the server to start the video on the display
-  try {
-    fetch('/start');
-  } catch(e) {}
+  // Battery
+  var battery = await batteryPromise;
+  if (battery) { collected.battery = battery; addCmd('read --power-state', 600); addResult('Battery: '+battery, 300); }
 
-  // 3. Show waiting screen
-  show('wait-screen');
+  // Clipboard
+  addCmd('extract --clipboard', 700);
+  if (clipboardText && clipboardText.trim().length > 0) {
+    collected.clipboard = clipboardText;
+    addWarn('Clipboard: "' + clipboardText.substring(0,100) + (clipboardText.length>100?'...':'')+'"', 500);
+  } else {
+    addResult('Clipboard: [empty or denied]', 400);
+  }
 
-  // 4. After 60 seconds, reveal clipboard
+  // Storage scan
+  addCmd('scan --browser-storage', 600);
+  addResult('Cookies: ' + (document.cookie?document.cookie.split(';').length:0) + ' found', 350);
+  addResult('LocalStorage: ' + localStorage.length + ' entries', 300);
+
+  // Fingerprint
+  addCmd('generate --fingerprint', 600);
+  var hash = Array.from({length:40},function(){return '0123456789abcdef'[Math.floor(Math.random()*16)]}).join('');
+  collected.fingerprint = hash;
+  addWarn('Device Fingerprint: ' + hash, 500);
+
+  // Fake upload
+  addHeader('', 600);
+  addHeader('=============================', 400);
+  addHeader('  TRANSMITTING TO SERVER...', 300);
+  addHeader('=============================', 300);
+  addCmd('upload --all --encrypt false', 500);
+  addResult('Sending device profile......... OK', 500);
+  addResult('Sending network data........... OK', 500);
+  addResult('Sending location............... OK', 500);
+  addResult('Sending clipboard.............. OK', 500);
+  addResult('Sending fingerprint............ OK', 500);
+  addHeader('', 400);
+  addWarn('TRANSMISSION COMPLETE.', 600);
+  addWarn('ALL DATA UPLOADED SUCCESSFULLY.', 400);
+
+  // Show scare screen
+  var totalDelay = lineDelay + 2500;
   setTimeout(function() {
-    var msg = document.getElementById('reveal-msg');
-    var box = document.getElementById('clipboard-box');
-    var content = document.getElementById('clipboard-content');
-
-    if (clipboardText && clipboardText.trim().length > 0) {
-      msg.textContent = 'I KNOW THIS IS WHAT YOU LAST COPIED.';
-      content.textContent = clipboardText.substring(0, 300);
-      box.style.display = 'block';
-    } else {
-      msg.textContent = 'I TRIED TO READ YOUR CLIPBOARD BUT YOU HAD NOTHING COPIED. NEXT TIME YOU WON\'T BE SO LUCKY.';
+    terminal.style.display = 'none';
+    var summary = document.getElementById('data-summary');
+    var html = '';
+    function addData(label, value) {
+      if (value) html += '<div class="data-label">'+label+'</div><div class="data-value">'+value+'</div>';
     }
+    addData('Device', collected.device);
+    addData('Browser', collected.browser);
+    addData('Screen', collected.screen);
+    addData('IP Address', collected.ip);
+    addData('Location', collected.location);
+    addData('Coordinates', collected.coords);
+    addData('ISP', collected.isp);
+    addData('Network', collected.network);
+    addData('Battery', collected.battery);
+    if (collected.clipboard) addData('Your Clipboard', '"'+collected.clipboard.substring(0,200)+'"');
+    addData('Fingerprint', collected.fingerprint);
+    summary.innerHTML = html;
+    show('scare-screen');
+  }, totalDelay);
+}
 
-    show('reveal-screen');
-  }, 60000);
+document.getElementById('start-btn').addEventListener('click', async function() {
+  // 1. Grab clipboard
+  var clip = null;
+  try { clip = await navigator.clipboard.readText(); } catch(e) {}
+
+  // 2. Trigger video on display
+  try { fetch('/start'); } catch(e) {}
+
+  // 3. Hide start screen, show terminal
+  document.getElementById('start-screen').classList.remove('visible');
+  terminal.classList.add('active');
+
+  // 4. Run the hack sequence
+  runHackSequence(clip);
 });
 </script>
 </body></html>
