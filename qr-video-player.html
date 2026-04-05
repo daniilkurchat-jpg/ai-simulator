@@ -35,11 +35,26 @@
     gap: 32px;
   }
 
+  #qr-title {
+    font-size: 48px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #ffffff;
+  }
+
+  #qr-layout {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+  }
+
   #qr-container {
     padding: 24px;
     background: #fff;
     border-radius: 16px;
     line-height: 0;
+    flex-shrink: 0;
   }
 
   #qr-container img {
@@ -52,20 +67,41 @@
     display: none;
   }
 
-  #qr-title {
-    font-size: 48px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: #ffffff;
+  #instructions {
+    text-align: left;
+    max-width: 360px;
   }
 
-  #qr-instructions {
-    font-size: 16px;
-    font-weight: 400;
+  #instructions ol {
+    list-style: none;
+    counter-reset: steps;
+    padding: 0;
+  }
+
+  #instructions ol li {
+    counter-increment: steps;
+    font-size: 18px;
     color: #ffffff;
-    text-align: center;
     line-height: 1.6;
+    margin-bottom: 16px;
+    padding-left: 36px;
+    position: relative;
+  }
+
+  #instructions ol li::before {
+    content: counter(steps) ".";
+    position: absolute;
+    left: 0;
+    font-weight: 700;
+    color: #7e00f3;
+  }
+
+  #instructions .note {
+    margin-top: 24px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.4);
+    line-height: 1.5;
+    font-style: italic;
   }
 
   #video-screen {
@@ -107,8 +143,17 @@
 
 <div id="qr-screen" class="screen">
   <div id="qr-title">AI SIMULATOR</div>
-  <div id="qr-container"></div>
-  <div id="qr-instructions">Scan the QR code with your phone<br>to begin the simulation</div>
+  <div id="qr-layout">
+    <div id="qr-container"></div>
+    <div id="instructions">
+      <ol>
+        <li>Scan the QR code</li>
+        <li>Press Start Simulation</li>
+        <li>Pay attention to the computer screen<br>(Don't worry about what's happening to your phone :) )</li>
+      </ol>
+      <div class="note">Note: If you get a paste button after pressing start, just press it, it's a small error.</div>
+    </div>
+  </div>
 </div>
 
 <div id="video-screen" class="screen hidden">
