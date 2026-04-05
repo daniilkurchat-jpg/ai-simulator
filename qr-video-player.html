@@ -126,6 +126,22 @@
     opacity: 0;
   }
 
+  #message-screen {
+    background: #000;
+    flex-direction: column;
+    gap: 16px;
+    padding: 48px;
+  }
+
+  #message-screen .msg-text {
+    font-size: 32px;
+    font-weight: 700;
+    color: #fff;
+    text-align: center;
+    line-height: 1.5;
+    max-width: 800px;
+  }
+
   #progress-bar.draining {
     opacity: 1;
     transition: transform 3s linear, opacity 0.3s ease;
@@ -159,6 +175,10 @@
 <div id="video-screen" class="screen hidden">
   <video id="player" playsinline></video>
   <div id="progress-bar"></div>
+</div>
+
+<div id="message-screen" class="screen hidden">
+  <div class="msg-text">Did you really just press paste? I collected all your data as listed on your phone with one tap. Pay more attention to your safety.</div>
 </div>
 
 <!-- qrcodejs 1.0.0 inlined from cdnjs for offline/file:// support -->
@@ -238,24 +258,24 @@
     }
   }
 
+  var messageScreen = document.getElementById('message-screen');
+
+  function showMessage() {
+    videoScreen.classList.add('hidden');
+    messageScreen.classList.remove('hidden');
+  }
+
   player.addEventListener('ended', function () {
-    progressBar.className = '';
-    progressBar.style.transform = 'scaleX(1)';
-    void progressBar.offsetWidth;
-    progressBar.classList.add('draining');
+    // Show the message screen for 20 seconds
+    showMessage();
 
     setTimeout(function () {
-      progressBar.classList.remove('draining');
-      progressBar.classList.add('fade-out');
-      showQR();
+      // Fade to QR
+      messageScreen.classList.add('hidden');
+      qrScreen.classList.remove('hidden');
       isPlaying = false;
-      setTimeout(function () {
-        progressBar.className = '';
-        progressBar.style.transform = '';
-      }, 400);
-      // Resume polling after returning to QR screen
       startPolling();
-    }, COUNTDOWN);
+    }, 20000);
   });
 
   // Poll the server for trigger signals
